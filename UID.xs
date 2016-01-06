@@ -30,6 +30,18 @@
 	uid_t cached_sgid;
 #endif
 
+#if PERL_VERSION < 16
+#   undef   PerlProc_setuid
+#   undef   PerlProc_setgid
+#   define  PerlProc_setuid(v)  PL_uid = v
+#   define  PerlProc_setgid(v)  PL_gid = v
+#   define  PerlProc_seteuid(v) PL_euid = v
+#   define  PerlProc_setegid(v) PL_egid = v
+#else
+#   define  PerlProc_seteuid(v)
+#   define  PerlProc_setegid(v)
+#endif
+
 MODULE = Proc::UID  PACKAGE = Proc::UID
 
 PROTOTYPES: DISABLE
@@ -184,7 +196,7 @@ setsgid(sgid)
 # drop_uid_temp - Drop privileges temporarily.
 # Moves the current effective UID to the saved UID.
 # Assigns the new_uid to the effective UID.
-# Updates PL_euid
+# Updates Perl's euid
 
 #ifdef SYS_setresuid
 
@@ -198,7 +210,7 @@ drop_uid_temp(new_uid)
 		if (geteuid() != new_uid) {
 			croak("Dropping privs appears to have failed.");
 		}
-		PL_euid = new_uid;
+		PerlProc_seteuid(new_uid);
 
 # else /* No setresuid() */
 
@@ -219,13 +231,13 @@ drop_uid_temp(new_uid)
 			croak("Dropping privs appears to have failed.");
 		}
 		cached_suid = old_euid;
-		PL_euid = new_uid;
+		PerlProc_seteuid(new_uid);
 
 #endif /* setresuid */
 
 # drop_uid_perm - Drop privileges permanently.
 # Set all privileges to new_uid.
-# Updates PL_uid and PL_euid
+# Updates Perl's uid and euid
 void
 drop_uid_perm(new_uid)
 		int new_uid;
@@ -257,8 +269,8 @@ drop_uid_perm(new_uid)
 
 		cached_suid = new_uid;
 #endif
-		PL_uid  = new_uid;
-		PL_euid = new_uid;
+		PerlProc_setuid (new_uid);
+		PerlProc_seteuid(new_uid);
 
 void
 restore_uid()
@@ -283,7 +295,7 @@ restore_uid()
 			croak("Failed to set effective UID.");
 		}
 #endif
-		PL_euid = suid;
+		PerlProc_seteuid(suid);
 
 # Now let's do the same for gid functions.
 # TODO - Think about getgroups / setgroups, how do they best fit in?
@@ -300,7 +312,7 @@ drop_gid_temp(new_gid)
 		if (getegid() != new_gid) {
 			croak("Dropping privs appears to have failed.");
 		}
-		PL_egid = new_gid;
+		PerlProc_setegid(new_gid);
 
 
 void
@@ -318,8 +330,8 @@ drop_gid_perm(new_gid)
 		if (rgid != new_gid || egid != new_gid || sgid != new_gid) {
 			croak("Failed to drop privileges.");
 		}
-		PL_gid  = new_gid;
-		PL_egid = new_gid;
+		PerlProc_setgid (new_gid);
+		PerlProc_setegid(new_gid);
 
 void
 restore_gid()
@@ -335,5 +347,5 @@ restore_gid()
 		if (getegid() != sgid) {
 			croak("Failed to set effective GID.");
 		}
-		PL_egid = sgid;
+		PerlProc_setegid(sgid);
 
